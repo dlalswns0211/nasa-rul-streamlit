@@ -1,0 +1,8 @@
+streamlit
+pandas
+numpy
+plotly
+duckdb
+pydantic-ai
+google-generativeai
+scikit-learn
