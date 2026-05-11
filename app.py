@@ -1853,3 +1853,102 @@ with tab_history:
                     st.markdown(f'<div class="info-card"><p style="color:#c9d1d9;line-height:1.7;">{resp}</p></div>', unsafe_allow_html=True)
                 except Exception as e:
                     st.error(f"오류: {e}")
+
+
+    st.markdown('<p class="section-header">즉시 점검 접수 및 이력 관리</p>', unsafe_allow_html=True)
+    st.caption("잔여 수명 30사이클 미만 엔진의 점검을 일괄 접수하고 기록합니다.")
+
+    summary_urg, _ = load_all_summary_best(subset_choice)
+
+    if summary_urg is not None:
+        latest_urg = summary_urg.drop_duplicates('unit_nr', keep='last')
+        critical_urg = latest_urg[latest_urg['pred_rul'] < 30].sort_values('pred_rul')
+
+        # ── 접수 이력 세션 초기화 ──
+        if "inspection_records" not in st.session_state:
+            st.session_state.inspection_records = []
+
+        # ── 즉시 점검 필요 엔진 목록 ──
+        st.markdown('<p class="section-header">🔴 즉시 점검 대상 엔진</p>', unsafe_allow_html=True)
+
+        if critical_urg.empty:
+            st.success("✅ 현재 즉시 점검이 필요한 엔진이 없습니다.")
+        else:
+            useful_urg = [f"s_{i}" for i in USEFUL_SENSORS.get(subset_choice, [])]
+
+            # 일괄 접수 버튼
+            col_btn1, col_btn2, _ = st.columns([1, 1, 2])
+            if col_btn1.button("📋 전체 일괄 접수", type="primary", use_container_width=True):
+                now = datetime.now().strftime("%Y.%m.%d %H:%M")
+                for _, row in critical_urg.iterrows():
+                    uid = int(row['unit_nr'])
+                    rul = int(row['pred_rul'])
+                    st.session_state.inspection_records.append({
+                        "접수일시": now,
+                        "엔진번호": uid,
+                        "잔여수명": f"{rul}사이클 ({rul_to_period(rul)})",
+                        "긴급도": "즉시점검",
+                        "상태": "접수완료",
+                        "담당자": "미배정",
+                    })
+                st.success(f"✅ {len(critical_urg)}대 일괄 접수 완료!")
+                st.rerun()
+
+            if col_btn2.button("🗑 접수 이력 초기화", use_container_width=True):
+                st.session_state.inspection_records = []
+                st.rerun()
+
+            # 개별 엔진 카드
+            for _, row in critical_urg.iterrows():
+                uid = int(row['unit_nr'])
+                rul = int(row['pred_rul'])
+                days = rul_to_period(rul)
+
+                already = any(r["엔진번호"] == uid for r in st.session_state.inspection_records)
+
+                ec1, ec2 = st.columns([4, 1])
+                with ec1:
+                    badge = '✅ 접수완료' if already else '미접수'
+                    badge_c = '#3fb950' if already else '#f85149'
+                    st.markdown(
+                        f'<div class="info-card" style="border-left:4px solid #f85149;margin-bottom:6px;">'
+                        f'<span style="color:#f85149;font-weight:700;">엔진 #{uid}</span>'
+                        f'<span style="color:#8b949e;font-size:0.82rem;margin-left:10px;">잔여 {rul}사이클 ({days})</span>'
+                        f'<span style="float:right;color:{badge_c};font-size:0.78rem;">{badge}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                with ec2:
+                    if not already:
+                        if st.button("접수", key=f"acc_{uid}", use_container_width=True):
+                            st.session_state.inspection_records.append({
+                                "접수일시": datetime.now().strftime("%Y.%m.%d %H:%M"),
+                                "엔진번호": uid,
+                                "잔여수명": f"{rul}사이클 ({days})",
+                                "긴급도": "즉시점검",
+                                "상태": "접수완료",
+                                "담당자": "미배정",
+                            })
+                            st.rerun()
+
+        # ── 접수 이력 ──
+        st.markdown("---")
+        st.markdown('<p class="section-header">📂 접수 이력</p>', unsafe_allow_html=True)
+
+        if st.session_state.inspection_records:
+            rec_df = pd.DataFrame(st.session_state.inspection_records)
+            st.dataframe(rec_df, use_container_width=True, height=300)
+
+            # CSV 다운로드
+            csv_bytes = rec_df.to_csv(index=False, encoding="utf-8-sig").encode("utf-8-sig")
+            st.download_button(
+                label="📊 접수 이력 엑셀(CSV)로 저장",
+                data=csv_bytes,
+                file_name=f"즉시점검접수_{subset_choice}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+        else:
+            st.info("아직 접수된 점검이 없습니다. 위에서 엔진을 접수하세요.")
+    else:
+        st.info("데이터를 불러올 수 없습니다.")
