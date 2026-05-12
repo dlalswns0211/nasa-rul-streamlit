@@ -2,3 +2,4 @@ CMAPSSData/preprocessed_test_*.csv
 cmapss.db
 .venv/
 __pycache__/
+.streamlit/secrets.toml

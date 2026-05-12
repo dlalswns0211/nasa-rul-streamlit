@@ -335,7 +335,7 @@ if "active_tab" not in st.session_state:
 # =========================================================
 # 2. 상수 & 매핑
 # =========================================================
-os.environ["GOOGLE_API_KEY"] = "your_key"
+os.environ["GOOGLE_API_KEY"] = "AIzaSyD8P6Vd_4wjXn_6zblSLheGoPN77YirvHU"
  
 # 센서 코드 → 한글 명칭, 단위
 SENSOR_META = {
