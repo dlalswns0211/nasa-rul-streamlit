@@ -9,3 +9,4 @@ scikit-learn
 joblib
 nest-asyncio
 shap
+python-requires>=3.12,<3.13
